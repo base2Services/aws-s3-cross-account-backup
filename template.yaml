@@ -128,9 +128,9 @@ Resources:
             - Name: BUCKET_SUFFIX
               Value: !Ref BucketSuffix
             - Name: SNS_TOPIC
-              Value: !If [ CreateSns, !Ref NotifyTopic, !Ref SnsNotifyTopic ]
+              Value: !If [ CreateSnsNotify, !Ref NotifyTopic, !Ref SnsNotifyTopic ]
             - Name: SNS_ERROR_TOPIC
-              Value: !If [ CreateSns, !Ref ErrorTopic, !Ref SnsErrorTopic ]
+              Value: !If [ CreateSnsError, !Ref ErrorTopic, !Ref SnsErrorTopic ]
           LogConfiguration:
             LogDriver: awslogs
             Options:
