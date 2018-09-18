@@ -43,11 +43,11 @@ aws cloudformation package \
   --s3-prefix cloudformation/shelvery \
   --output-template-file packaged-template.yaml
 
-echo "updating/creating cloudformation stack shelvery"
+echo "updating/creating cloudformation stack s3-cross-account-backup"
 aws cloudformation deploy \
   --force-upload \
   --no-fail-on-empty-changeset \
   --template-file ./packaged-template.yaml \
   --stack-name s3-cross-account-backup \
   --parameter-overrides S3BackupBucketList=$BUCKET_LIST $OPTIONAL_PARAMETERS \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
