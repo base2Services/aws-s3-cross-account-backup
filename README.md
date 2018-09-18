@@ -64,6 +64,16 @@
     - `-b` [required] comma delimited list of s3 buckets
     - `-k` [optional] suffix of backup s3 buckets, defaults to `backup`
 
+6. Manually create the cloudwatch event as fargate targets are not supported in cloudformation yet.
+  - Launch type - `FARGATE`
+  - Platform version - `LATEST`
+  - ECS target - `S3Backup`
+  - Target role - `S3Backup`
+  - Number of tasks - `1`
+  - Allowed subnets - [select your own subnets]
+  - Security group(s) - [Security group with no egress]
+  - Auto-assign public IP - `ENABLED` or `DISABLED` depending on your subnets
+
 ## Monitoring
 
 This check can be monitored using the SAM template in the [monitoring](monitoring/README.md) directory
