@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 's3FileSyncMonitor'
+
+Parameters:
+
+  MonitoringMode:
+    Description: Enabled the required monitoring mode
+    Type: String
+    Default: check
+    AllowedValues:
+      - check
+      - create
+
+  CreateSchedule:
+    Description: Cron cloudwatch schedule to create the file
+    Type: String
+    Default: "0 23 ? * * *"
+
+  CheckSchedule:
+    Description: Cron cloudwatch schedule to check the file
+    Type: String
+    Default: "0 1 ? * * *"
+
+  Bucket:
+    Description: S3 bucket to monitor
+    Type: String
+    Default: ""
+
+  Key:
+    Description: File name created/monitored
+    Type: String
+    Default: S3SyncMonitorFile
+
+  SNS:
+    Description: SNS topic arn to send alerts. If empty will create topic
+    Type: String
+    Default: ""
+
+Conditions:
+
+  IsCheck: !Equals [ !Ref 'MonitoringMode', 'check' ]
+  IsCreate: !Equals [ !Ref 'MonitoringMode', 'create' ]
+  CreateSns: !And
+    - !Equals [ !Ref 'SNS', '' ]
+    - !Equals [ !Ref 'MonitoringMode', 'check' ]
+
+Resources:
+
+  CreateFile:
+    Type: AWS::Serverless::Function
+    Condition: IsCreate
+    Properties:
+      Handler: createFile.lambda_handler
+      Runtime: python3.6
+      CodeUri: createFile.zip
+      Timeout: 300
+      Environment:
+        Variables:
+          Bucket: !Ref Bucket
+          Key: !Ref Key
+      Events:
+        CreateDataBucket:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CreateSchedule})
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'lambda:Invoke*'
+              Resource:
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:CreateFile"
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: '*'
+
+  CheckFile:
+    Type: AWS::Serverless::Function
+    Condition: IsCheck
+    Properties:
+      Handler: checkFile.lambda_handler
+      Runtime: python3.6
+      CodeUri: checkFile.zip
+      Timeout: 300
+      Environment:
+        Variables:
+          Bucket: !Ref Bucket
+          Key: !Ref Key
+          Region: !Ref AWS::Region
+      Events:
+        CheckDataBucket:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CheckSchedule})
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'lambda:Invoke*'
+              Resource:
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:CheckFile"
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+                - s3:GetObject
+                - cloudwatch:PutMetricData
+              Resource: '*'
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Condition: CreateSns
+    Properties:
+      DisplayName: 's3SyncAlarm'
+      TopicName: 's3SyncAlarm'
+
+  Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: IsCheck
+    Properties:
+      Namespace: s3FileSyncMonitor
+      AlarmDescription: 'S3 Sync Monitor'
+      MetricName: Sync
+      Dimensions:
+      - Name: File
+        Value: !Ref Key
+      - Name: Bucket
+        Value: !Ref Bucket
+      Statistic: Maximum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+      - !If [ CreateSns, !Ref AlarmTopic, !Ref SNS ]
+      InsufficientDataActions:
+      - !If [ CreateSns, !Ref AlarmTopic, !Ref SNS ]
+      OKActions:
+      - !If [ CreateSns, !Ref AlarmTopic, !Ref SNS ]
