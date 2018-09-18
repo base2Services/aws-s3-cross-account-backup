@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: S3 cross account backup
+
+Parameters:
+
+  S3BackupBucketList:
+    Type: String
+    Description: Comma seperated list of s3 buckets
+    Default: ""
+
+  BucketSuffix:
+    Type: String
+    Description: suffix for the backup s3 buckets
+    Default: backup
+
+  # Sechulde created manually due to fargate cloudwatch scheduled event not available in cloudformation yet...
+  # Schedule:
+  #   Type: String
+  #   Default: "0 1 ? * * *"
+
+  SnsNotifyTopic:
+    Type: String
+    Default: ""
+
+  SnsErrorTopic:
+    Type: String
+    Default: ""
+
+Conditions:
+
+  CreateSnsNotify: !Equals [ !Ref 'SnsNotifyTopic', '' ]
+  CreateSnsError: !Equals [ !Ref 'SnsErrorTopic', '' ]
+
+Resources:
+
+  NotifyTopic:
+    Type: AWS::SNS::Topic
+    Condition: CreateSnsNotify
+    Properties:
+      DisplayName: 'SnsErrorTopic'
+      TopicName: 'SnsErrorTopic'
+
+  ErrorTopic:
+    Type: AWS::SNS::Topic
+    Condition: CreateSnsError
+    Properties:
+      DisplayName: 's3SyncAlarm'
+      TopicName: 's3SyncAlarm'
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ecs-tasks.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+      -
+        PolicyName: "s3-backup"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action:
+                - s3:List*
+                - s3:Get*
+                - s3:Put*
+                - SNS:Publish
+              Resource: "*"
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ecs-tasks.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns: ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref AWS::StackName
+      RetentionInDays: "7"
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: Shelvery
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: "256"
+      Memory: "512"
+      ContainerDefinitions:
+        -
+          Name: "my-app"
+          Image: "base2/aws-s3-cross-account-backup"
+          Environment:
+            - Name: BUCKETS
+              Value: !Ref S3BackupBucketList
+            - Name: BUCKET_SUFFIX
+              Value: !Ref BucketSuffix
+            - Name: SNS_TOPIC
+              Value: !If [ CreateSns, !Ref NotifyTopic, !Ref SnsNotifyTopic ]
+            - Name: SNS_ERROR_TOPIC
+              Value: !If [ CreateSns, !Ref ErrorTopic, !Ref SnsErrorTopic ]
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: s3-backup
+
+      NetworkMode: 'awsvpc'
+      RequiresCompatibilities: ['FARGATE']
+      TaskRoleArn: !Ref TaskRole
+      ExecutionRoleArn: !Ref ExecutionRole
+
+  EventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "events.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns: ["arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceEventsRole"]
+
+  # EventRule:
+  #   Type: AWS::Events::Rule
+  #   Properties:
+  #     Description: s3-scheduled-backup
+  #     ScheduleExpression: !Sub cron(${S3BackupSchedule})
+  #     State: ENABLED
+  #     Targets:
+  #       - RoleArn: !GetAtt EventRole.Arn
+  #         Id: s3-scheduled-backup
+  #         EcsParameters:
+  #           TaskDefinitionArn: !Ref TaskDefinition
+  #           TaskCount: 1
+  #         Arn: !GetAtt Cluster.Arn
