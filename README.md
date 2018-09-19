@@ -68,11 +68,11 @@
   - Launch type - `FARGATE`
   - Platform version - `LATEST`
   - ECS target - `S3Backup`
-  - Target role - `S3Backup`
   - Number of tasks - `1`
   - Allowed subnets - [select your own subnets]
   - Security group(s) - [Security group with no egress]
   - Auto-assign public IP - `ENABLED` or `DISABLED` depending on your subnets
+  - CloudWatch Events IAM role for this target - `S3BackupEventRole`
 
 ## Monitoring
 
