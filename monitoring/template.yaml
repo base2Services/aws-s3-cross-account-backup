@@ -53,7 +53,7 @@ Resources:
     Properties:
       Handler: createFile.lambda_handler
       Runtime: python3.6
-      CodeUri: createFile.zip
+      CodeUri: src.zip
       Timeout: 300
       Environment:
         Variables:
@@ -83,7 +83,7 @@ Resources:
     Properties:
       Handler: checkFile.lambda_handler
       Runtime: python3.6
-      CodeUri: checkFile.zip
+      CodeUri: src.zip
       Timeout: 300
       Environment:
         Variables:

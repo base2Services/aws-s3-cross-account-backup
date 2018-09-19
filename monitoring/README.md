@@ -25,3 +25,4 @@ It is broken up into 2 modes to be deployed as 2 seperate cloudformation stacks 
     - `-b` [required] s3 bucket to monitor
     - `-m` [required] enable the required monitoring mode, `check` or `create`
     - `-k` [optional] name of the file monitoring creates, defaults to `S3SyncMonitorFile`
+    - `-t` [optional] specify an existing sns topic arn

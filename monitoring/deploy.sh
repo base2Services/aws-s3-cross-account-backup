@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e
 
-while getopts ":b:k:s:m:" opt; do
+OPTIONAL_PARAMETERS=""
+
+while getopts ":b:k:s:m:t:" opt; do
   case $opt in
     m)
       MODE=$OPTARG
@@ -14,6 +16,9 @@ while getopts ":b:k:s:m:" opt; do
       ;;
     k)
       KEY=$OPTARG
+      ;;
+    t)
+      OPTIONAL_PARAMETERS="$OPTIONAL_PARAMETERS SNS=$OPTARG"
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -46,19 +51,19 @@ if [ -z ${SOURCEBUCKET+x} ]; then
 fi
 
 echo "packaging lambdas"
-zip monitoring.zip checkFile.py createFile.py
+zip src.zip checkFile.py createFile.py
 
 echo "packaging cloudformation"
 aws cloudformation package \
   --force-upload \
-  --template-file checkFile.yaml \
+  --template-file template.yaml \
   --s3-bucket $SOURCEBUCKET \
   --s3-prefix cloudformation/s3FileSyncMonitor \
-  --output-template-file packaged-checkFile.yaml
+  --output-template-file packaged-template.yaml
 
 echo "updating/creating cloudformation stack s3FileSyncMonitor$MODE"
 aws cloudformation deploy \
-  --template-file ./packaged-checkFile.yaml \
-  --parameter-overrides Bucket=$MONITORBUCKET Key=$KEY MonitoringMode=$MODE \
+  --template-file ./packaged-template.yaml \
+  --parameter-overrides Bucket=$MONITORBUCKET Key=$KEY MonitoringMode=$MODE $OPTIONAL_PARAMETERS \
   --stack-name s3FileSyncMonitor$MODE \
   --capabilities CAPABILITY_IAM
