@@ -23,10 +23,10 @@ for bucket in ${BUCKET_ARRAY[@]}; do
   MESSAGE="{\"Operation\":\"S3BucketBackup\",\"Status\":\"${STATUS}\",\"BackupType\":\"S3\",\"Bucket\":\"$bucket\",\"Timestamp\":\"$(date +%Y%m%d-%H%M%S)\"}"
   echo "INFO: Backup task finished with status $STATUS"
 
-  if [ ! -z ${SNS_ERROR_TOPIC} && $STATUS == "FAILED" ]; then
+  if [ ! -z ${SNS_ERROR_TOPIC+x} ] && [ $STATUS == "FAILED" ]; then
     echo "INFO: Sending sns error notification to $SNS_ERROR_TOPIC\n$MESSAGE"
     aws sns publish --topic-arn ${SNS_ERROR_TOPIC} --message $MESSAGE
-  elif [ ! -z ${SNS_TOPIC} ]; then
+  elif [ ! -z ${SNS_TOPIC+x} ]; then
     echo "INFO: Sending sns notification to $SNS_TOPIC\n$MESSAGE"
     aws sns publish --topic-arn ${SNS_TOPIC} --message $MESSAGE
   fi
