@@ -35,6 +35,10 @@ Parameters:
     Type: String
     Default: ""
 
+  ImageTag:
+    Type: String
+    Default: latest
+
 Conditions:
 
   CreateSnsNotify: !Equals [ !Ref 'SnsNotifyTopic', '' ]
@@ -88,7 +92,6 @@ Resources:
   ExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: S3Backup
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -121,7 +124,7 @@ Resources:
       ContainerDefinitions:
         -
           Name: "my-app"
-          Image: "base2/aws-s3-cross-account-backup"
+          Image: !Sub "base2/aws-s3-cross-account-backup:${ImageTag}"
           Environment:
             - Name: BUCKETS
               Value: !Ref S3BackupBucketList
@@ -146,6 +149,7 @@ Resources:
   EventRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: S3BackupEventRole
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
