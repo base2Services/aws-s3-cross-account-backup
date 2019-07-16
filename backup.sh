@@ -15,7 +15,7 @@ IFS=', ' read -r -a BUCKET_ARRAY <<< "$BUCKETS"
 for bucket in ${BUCKET_ARRAY[@]}; do
 
   echo "INFO: Backup for $bucket starting"
-  if aws s3 sync s3://${bucket} s3://${bucket}.${BUCKET_SUFFIX}/; then
+  if aws s3 sync s3://${bucket} s3://${bucket}.${BUCKET_SUFFIX}/ --sse; then
     STATUS="OK"
   else
     STATUS="FAILED"
